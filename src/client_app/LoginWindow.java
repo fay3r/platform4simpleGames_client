@@ -1,22 +1,27 @@
 package client_app;
 
-import client_app.classes.AccountData;
-import client_app.classes.LogginData;
+import client_app.classes.dtoPlatform.AccountData;
+import client_app.classes.dtoPlatform.ChatMessage;
+import client_app.classes.dtoPlatform.LogginData;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.*;
+import java.util.List;
 
-public class Gui implements ActionListener, Runnable {
+public class LoginWindow extends Component implements ActionListener, Runnable {
 
-    private String[] questions = {"Imię psa?",
-            "Ulubiona drużyna?",
-            "Ulubiony samochód?",
-            "Imię ulubionej osoby?"};
-    Network networkApi;
-
+    private String[] questions = {"Imie psa?",
+            "Ulubiona druzyna?",
+            "Ulubiony samochod?",
+            "Imie ulubionej osoby?"};
+    private Network networkApi;
+    private List<String> logins;
+    private Map<String,String> currentQA;
     private JFrame loginFrame = new JFrame();
+    private List<ChatMessage> chatMessages = new LinkedList<>();
     //login
     private JButton loginButton = new JButton();
     private JLabel nameLabel = new JLabel();
@@ -48,6 +53,7 @@ public class Gui implements ActionListener, Runnable {
     private JLabel fpNickLabel = new JLabel("Login");
     private JTextField fpNickField = new JTextField();
     private JButton fpCheckNick = new JButton("Sprawdź");
+    private JLabel fpError = new JLabel("Nie znaleziono");
     private JLabel fpQuesion = new JLabel();
     private JTextField fpAnswer = new JTextField();
     private JLabel fpNewPasswordLabel = new JLabel("Nowe hasło");
@@ -55,14 +61,9 @@ public class Gui implements ActionListener, Runnable {
     private JButton fpButton = new JButton("Zmień hasło");
     private JButton fpCancelButton = new JButton("Anuluj");
 
-    //player hud
-    private JFrame playerFrame = new JFrame();
-    private JButton logoutButton = new JButton();
-    Container x = new Container();
-
-
-    Gui() {
+    LoginWindow() {
         modeMainFrame(0);
+
         //login
         loginFrame.setSize(350, 360);
         loginFrame.setLayout(null);
@@ -71,12 +72,7 @@ public class Gui implements ActionListener, Runnable {
         loginFrame.setResizable(false);
         loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         loginFrame.setLocation((Toolkit.getDefaultToolkit().getScreenSize().width - 320) / 2, (Toolkit.getDefaultToolkit().getScreenSize().height - 360) / 2);
-
-        playerFrame.setSize(600,500);
-        playerFrame.setLayout(null);
-        playerFrame.setTitle("Game-platform");
-        playerFrame.setResizable(false);
-        playerFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        loginFrame.getContentPane().setBackground(new Color(100, 140, 180));
 
         nameLabel.setText("Logowanie / Rejestracja");
         nameLabel.setFont(new Font("Arial", Font.BOLD,20));
@@ -123,7 +119,7 @@ public class Gui implements ActionListener, Runnable {
         registrationLabel.setFont(new Font("Arial", Font.BOLD,20));
         registerNickLabel.setText("Login");
         registerNickLabel.setBounds(40, 45, 100 ,20);
-        registerNickError.setBounds(120, 45, 100 ,20);
+        registerNickError.setBounds(120, 45, 150 ,20);
         registerNickError.setForeground(Color.red);
         registerNickField.setBounds(40, 67, 150 ,20);
 
@@ -172,6 +168,7 @@ public class Gui implements ActionListener, Runnable {
         fpButton.addActionListener(this);
         fpCancelButton.setBounds(49,212,110,30);
         fpCancelButton.addActionListener(this);
+        fpError.setBounds(200,90,110,20);
 
         loginFrame.add(fpAnswer);
         loginFrame.add(fpButton);
@@ -183,15 +180,7 @@ public class Gui implements ActionListener, Runnable {
         loginFrame.add(fpQuesion);
         loginFrame.add(fpCancelButton);
         loginFrame.add(fpCheckNick);
-
-
-
-        //player hud
-        logoutButton.setBounds(40,40,100, 70);
-        logoutButton.setText("wyloguj");
-        logoutButton.addActionListener(this);
-        playerFrame.add(logoutButton);
-
+        loginFrame.add(fpError);
     }
 
     @Override
@@ -199,22 +188,21 @@ public class Gui implements ActionListener, Runnable {
         Object source = e.getSource();
 
         if(source == loginButton){
-            if(networkApi.loginUser(new LogginData(nickField.getText(),passwordField.getText()))){
+            if(networkApi.loginUser(new LogginData(nickField.getText().replace(" ",""),passwordField.getText()))){
                 loginFrame.setVisible(false);
-                playerFrame.setVisible(true);
                 errorField.setText("");
+                new PlatformWindow(nickField.getText());
             }
             else { errorField.setText("Złe dane logowania"); }
-        }
-        if(source == logoutButton){
-            nickField.setText("");
-            passwordField.setText("");
-            loginFrame.setVisible(true);
-            playerFrame.setVisible(false);
         }
         if(source == registerButton){
             errorField.setText("");
             modeMainFrame(1);
+            registerNickError.setText("");
+            registerAnswer.setText("");
+            registerNickField.setText("");
+            registerPasswordField.setText("");
+            registerQuestions.setSelectedIndex(0);
 
         }
         if(source == forgetPasswordButton){
@@ -224,18 +212,25 @@ public class Gui implements ActionListener, Runnable {
             fpButton.setEnabled(false);
             fpNewPasswordField.setEnabled(false);
             errorField.setText("");
+            fpError.setVisible(false);
         }
-        if(source == registrationButton){
-            if(networkApi.registerUser(new AccountData(registerNickField.getText(),
-                                                    registerPasswordField.getText(),
-                                                    questions[registerQuestions.getSelectedIndex()],
-                                                    registerAnswer.getText()))){
-                modeMainFrame(0);
-                nickField.setText(registerNickField.getText());
-                passwordField.setText("");
-                registerNickError.setText("");
+        if(source == registrationButton) {
+
+            if (!registerNickField.getText().isBlank() && !registerPasswordField.getText().isBlank() && !registerAnswer.getText().isBlank()) {
+
+                if (networkApi.registerUser(new AccountData(registerNickField.getText().replace(" ", ""),
+                        registerPasswordField.getText(),
+                        questions[registerQuestions.getSelectedIndex()],
+                        registerAnswer.getText()))) {
+                    modeMainFrame(0);
+                    nickField.setText(registerNickField.getText());
+                    passwordField.setText("");
+                    registerNickError.setText("");
+                }
+                registerNickError.setText("Zajęty login");
+            } else {
+                registerNickError.setText("Nic nie może być puste");
             }
-            registerNickError.setText("Zajęty login");
         }
 
         if(source == registrationCancelButton || source == fpCancelButton){
@@ -244,6 +239,7 @@ public class Gui implements ActionListener, Runnable {
             fpAnswer.setText("");
             fpNickField.setText("");
             fpQuesion.setText("");
+            fpCheckNick.setEnabled(true);
 
             registerNickError.setText("");
             registerAnswer.setText("");
@@ -256,21 +252,42 @@ public class Gui implements ActionListener, Runnable {
         }
 
         if(source == fpButton){
-            modeMainFrame(0);
+            if(currentQA.get("answer").equals(fpAnswer.getText())){
+                if(!fpNewPasswordField.getText().isBlank()) {
+                    if (networkApi.FPChange(new LogginData(fpNickField.getText(), fpNewPasswordField.getText()))) {
+                        modeMainFrame(0);
+                    }
+                } else {
+                    JOptionPane.showMessageDialog(this, "Hasło nie może być puste", "Błąd", JOptionPane.ERROR_MESSAGE);
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, "Zła odpowiedź na pytanie!", "Błąd", JOptionPane.ERROR_MESSAGE);
+            }
         }
+
         if(source == fpCheckNick){
-            fpNickField.setEnabled(false);
-            fpAnswer.setEnabled(true);
-            fpButton.setEnabled(true);
-            fpNewPasswordField.setEnabled(true);
+            if(isAdmin(fpNickField.getText()) || fpCheckNick.getText().isBlank()) {
+                currentQA = networkApi.checkingUserPresence(fpNickField.getText());
+                if (currentQA != null) {
+                    fpQuesion.setText(currentQA.get("question"));
+                    fpNickField.setEnabled(false);
+                    fpAnswer.setEnabled(true);
+                    fpButton.setEnabled(true);
+                    fpNewPasswordField.setEnabled(true);
+                    fpCheckNick.setEnabled(false);
+                    fpError.setVisible(false);
+                } else {
+                    fpError.setVisible(true);
+                }
+            } else {
+                fpError.setVisible(true);
+            }
         }
     }
 
     @Override
     public void run() {
-        Gui a = new Gui();
-
-
+        LoginWindow a = new LoginWindow();
     }
 
     public void modeMainFrame(int mode){
@@ -331,9 +348,15 @@ public class Gui implements ActionListener, Runnable {
         fpLabel.setVisible(mode);
         fpCancelButton.setVisible(mode);
         fpCheckNick.setVisible(mode);
+        fpError.setVisible(mode);
 }
 
-
+    private boolean isAdmin(String nick){
+        if(nick.equals("administrator")){
+            return false;
+        }
+        return true;
+    }
 }
 
 
