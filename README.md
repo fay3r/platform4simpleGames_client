@@ -6,6 +6,7 @@ One of the first clients made by me, learning mechanics, connections with server
 
 Allows registering, logging, chatting, playing some simple games vs stupid AI (randomized choice of moves).
 
+Server repo: https://github.com/fay3r/platform4simpleGames_server<br><br>
 Some screens of GUI:<br>
 Login:<br>
 
